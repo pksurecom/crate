@@ -120,7 +120,7 @@ public class CrossJoinConsumer implements Consumer {
             // TODO: replace references with docIds.. and add fetch projection
 
             boolean filteredDistributedNL = where.hasQuery() && !(where.query() instanceof Literal);
-            NestedLoop nl = toNestedLoop(queriedTables, context, filteredDistributedNL);
+            NestedLoop nl = toNestedLoop(queriedTables, context, false);
             List<Symbol> queriedTablesOutputs = getAllOutputs(queriedTables);
 
             /**
@@ -338,14 +338,9 @@ public class CrossJoinConsumer implements Consumer {
                         getOutputTypes(rightMerge, rightRelation.querySpec().outputs()),
                         executionNodes
                 );
-                if (isDistributed) {
-                    nestedLoopPhase.distributionInfo(DistributionInfo.DEFAULT_BROADCAST);
-                    MergePhase localMerge = localHandlerMerge(
-                            context, localExecutionNodes, jobId, leftRelation, rightRelation, leftOutputs, leftOrderBy, nestedLoopPhase);
-                    nl = new NestedLoop(jobId, leftPlan, rightPlan, nestedLoopPhase, localMerge, true);
-                } else {
-                    nl = new NestedLoop(jobId, leftPlan, rightPlan, nestedLoopPhase, null, true);
-                }
+                MergePhase localMerge = localHandlerMerge(
+                        context, localExecutionNodes, jobId, leftRelation, rightRelation, leftOutputs, leftOrderBy, nestedLoopPhase);
+                nl = new NestedLoop(jobId, leftPlan, rightPlan, nestedLoopPhase, localMerge, true);
             }
             return nl;
         }
