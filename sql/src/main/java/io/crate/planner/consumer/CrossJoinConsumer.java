@@ -120,7 +120,7 @@ public class CrossJoinConsumer implements Consumer {
             // TODO: replace references with docIds.. and add fetch projection
 
             boolean filteredDistributedNL = where.hasQuery() && !(where.query() instanceof Literal);
-            NestedLoop nl = toNestedLoop(queriedTables, context, filteredDistributedNL);
+            NestedLoop nl = toNestedLoop(queriedTables, context, true);
             List<Symbol> queriedTablesOutputs = getAllOutputs(queriedTables);
 
             /**
