@@ -23,6 +23,7 @@
 package io.crate.operation.collect.collectors;
 
 import com.google.common.base.Function;
+import com.google.common.collect.Iterables;
 import io.crate.core.collections.Row;
 import io.crate.operation.Input;
 import io.crate.operation.InputRow;
@@ -35,36 +36,28 @@ import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.ScoreDoc;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
 class ScoreDocRowFunction implements Function<ScoreDoc, Row> {
 
-    private final List<OrderByCollectorExpression> orderByCollectorExpressions = new ArrayList<>();
     private final IndexReader indexReader;
-    private final Collection<? extends LuceneCollectorExpression<?>> expressions;
+    private final Iterable<? extends LuceneCollectorExpression<?>> expressions;
     private final DummyScorer scorer;
     private final InputRow inputRow;
+    private final Iterable<OrderByCollectorExpression> orderByCollectorExpressions;
 
 
     public ScoreDocRowFunction(IndexReader indexReader,
                                List<Input<?>> inputs,
                                Collection<? extends LuceneCollectorExpression<?>> expressions,
+                               Collection<OrderByCollectorExpression> orderByCollectorExpressions,
                                DummyScorer scorer) {
         this.indexReader = indexReader;
-        this.expressions = expressions;
+        this.orderByCollectorExpressions = orderByCollectorExpressions;
+        this.expressions = Iterables.concat(expressions, orderByCollectorExpressions);
         this.scorer = scorer;
         this.inputRow = new InputRow(inputs);
-        addOrderByExpressions(expressions);
-    }
-
-    private void addOrderByExpressions(Collection<? extends LuceneCollectorExpression<?>> expressions) {
-        for (LuceneCollectorExpression<?> expression : expressions) {
-            if (expression instanceof OrderByCollectorExpression) {
-                orderByCollectorExpressions.add((OrderByCollectorExpression) expression);
-            }
-        }
     }
 
     @Nullable

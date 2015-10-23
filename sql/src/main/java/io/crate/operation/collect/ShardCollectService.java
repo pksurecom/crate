@@ -37,6 +37,7 @@ import io.crate.metadata.shard.ShardReferenceResolver;
 import io.crate.metadata.shard.blob.BlobShardReferenceResolver;
 import io.crate.operation.ImplementationSymbolVisitor;
 import io.crate.operation.Input;
+import io.crate.operation.OrderByExpressionExtractor;
 import io.crate.operation.collect.blobs.BlobDocCollector;
 import io.crate.operation.collect.collectors.CollectorFieldsVisitor;
 import io.crate.operation.collect.collectors.CrateDocCollector;
@@ -76,6 +77,7 @@ public class ShardCollectService {
     private final EvaluatingNormalizer shardNormalizer;
     private final ProjectionToProjectorVisitor projectorVisitor;
     private final boolean isBlobShard;
+    private final OrderByExpressionExtractor orderByExpressionExtractor;
     private final BlobIndices blobIndices;
     private final MapperService mapperService;
     private final IndexFieldDataService indexFieldDataService;
@@ -90,6 +92,7 @@ public class ShardCollectService {
                                ShardId shardId,
                                Functions functions,
                                ShardReferenceResolver referenceResolver,
+                               OrderByExpressionExtractor orderByExpressionExtractor,
                                BlobIndices blobIndices,
                                MapperService mapperService,
                                IndexFieldDataService indexFieldDataService,
@@ -99,6 +102,7 @@ public class ShardCollectService {
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.shardId = shardId;
+        this.orderByExpressionExtractor = orderByExpressionExtractor;
         this.blobIndices = blobIndices;
         this.mapperService = mapperService;
         this.indexFieldDataService = indexFieldDataService;
@@ -134,7 +138,7 @@ public class ShardCollectService {
         assert !collectPhase.whereClause().hasQuery()
                 : "whereClause shouldn't have a query after normalize. Should be NO_MATCH or MATCH_ALL";
         return RowsCollector.single(
-                shardImplementationSymbolVisitor.extractImplementations(collectPhase).topLevelInputs(),
+                shardImplementationSymbolVisitor.extractImplementations(collectPhase.toCollect()).topLevelInputs(),
                 rowReceiver
         );
     }
@@ -168,7 +172,7 @@ public class ShardCollectService {
     }
 
     private CrateCollector getBlobIndexCollector(CollectPhase collectNode, RowReceiver downstream) {
-        CollectInputSymbolVisitor.Context ctx = docInputSymbolVisitor.extractImplementations(collectNode);
+        CollectInputSymbolVisitor.Context ctx = docInputSymbolVisitor.extractImplementations(collectNode.toCollect());
         Input<Boolean> condition;
         if (collectNode.whereClause().hasQuery()) {
             condition = (Input)docInputSymbolVisitor.process(collectNode.whereClause().query(), ctx);
@@ -200,7 +204,7 @@ public class ShardCollectService {
                     collectNode.whereClause()
             );
             jobCollectContext.addSearchContext(sharedShardContext.readerId(), searchContext);
-            CollectInputSymbolVisitor.Context docCtx = docInputSymbolVisitor.extractImplementations(collectNode);
+            CollectInputSymbolVisitor.Context docCtx = docInputSymbolVisitor.extractImplementations(collectNode.toCollect());
             Executor executor = threadPool.executor(ThreadPool.Names.SEARCH);
 
             return new CrateDocCollector(
@@ -238,7 +242,7 @@ public class ShardCollectService {
                     collectPhase.whereClause()
             );
             jobCollectContext.addSearchContext(sharedShardContext.readerId(), searchContext);
-            ctx = docInputSymbolVisitor.extractImplementations(collectPhase);
+            ctx = docInputSymbolVisitor.extractImplementations(collectPhase.toCollect());
 
             collectorContext = new CollectorContext(
                     mapperService,
@@ -267,7 +271,8 @@ public class ShardCollectService {
                 collectPhase.orderBy(),
                 LuceneSortGenerator.generateLuceneSort(collectorContext, collectPhase.orderBy(), docInputSymbolVisitor),
                 ctx.topLevelInputs(),
-                ctx.docLevelExpressions()
+                ctx.docLevelExpressions(),
+                orderByExpressionExtractor.extractExpressions(collectPhase.orderBy())
         );
     }
 }

@@ -32,6 +32,7 @@ import io.crate.operation.Input;
 import io.crate.operation.merge.NumberedIterable;
 import io.crate.operation.reference.doc.lucene.CollectorContext;
 import io.crate.operation.reference.doc.lucene.LuceneCollectorExpression;
+import io.crate.operation.reference.doc.lucene.OrderByCollectorExpression;
 import org.apache.lucene.search.*;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
@@ -56,7 +57,7 @@ public class OrderedDocCollector implements Callable<NumberedIterable<Row>>, Aut
     private final OrderBy orderBy;
     private final CollectorContext collectorContext;
     private final Sort sort;
-    private final Collection<LuceneCollectorExpression<?>> expressions;
+    private final Iterable<LuceneCollectorExpression<?>> expressions;
     private final NumberedIterable<Row> empty;
     private final int shardId;
     private final ScoreDocRowFunction rowFunction;
@@ -76,7 +77,8 @@ public class OrderedDocCollector implements Callable<NumberedIterable<Row>>, Aut
                                OrderBy orderBy,
                                Sort sort,
                                List<Input<?>> inputs,
-                               Collection<LuceneCollectorExpression<?>> expressions) {
+                               Collection<LuceneCollectorExpression<?>> expressions,
+                               Collection<OrderByCollectorExpression> orderByExpressions) {
         this.searchContext = searchContext;
         this.shardId = searchContext.indexShard().shardId().id();
         this.doDocsScores = doDocsScores;
@@ -86,11 +88,12 @@ public class OrderedDocCollector implements Callable<NumberedIterable<Row>>, Aut
         this.collectorContext = collectorContext;
         this.sort = sort;
         this.scorer = new DummyScorer();
-        this.expressions = expressions;
+        this.expressions = Iterables.concat(expressions, orderByExpressions);
         this.rowFunction = new ScoreDocRowFunction(
                 searcher.getIndexReader(),
                 inputs,
                 expressions,
+                orderByExpressions,
                 scorer
         );
         empty = new NumberedIterable<>(shardId, Collections.<Row>emptyList());

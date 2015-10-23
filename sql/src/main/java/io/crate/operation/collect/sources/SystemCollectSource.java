@@ -87,7 +87,7 @@ public class SystemCollectSource implements CollectSource {
             return RowsCollector.empty(rowReceiver);
         }
 
-        CollectInputSymbolVisitor.Context ctx = docInputSymbolVisitor.extractImplementations(collectPhase);
+        CollectInputSymbolVisitor.Context ctx = docInputSymbolVisitor.extractImplementations(collectPhase.toCollect());
         Input<Boolean> condition;
         if (whereClause.hasQuery()) {
             assert DataTypes.BOOLEAN.equals(whereClause.query().valueType());

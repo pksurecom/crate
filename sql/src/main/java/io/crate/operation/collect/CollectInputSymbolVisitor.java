@@ -21,18 +21,13 @@
 
 package io.crate.operation.collect;
 
-import io.crate.analyze.OrderBy;
 import io.crate.analyze.symbol.Reference;
-import io.crate.analyze.symbol.Symbol;
 import io.crate.analyze.symbol.SymbolFormatter;
 import io.crate.exceptions.UnhandledServerException;
 import io.crate.metadata.Functions;
 import io.crate.operation.AbstractImplementationSymbolVisitor;
 import io.crate.operation.Input;
 import io.crate.operation.reference.ReferenceResolver;
-import io.crate.operation.reference.doc.lucene.OrderByCollectorExpression;
-import io.crate.planner.node.dql.CollectPhase;
-import org.elasticsearch.common.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,36 +45,14 @@ public class CollectInputSymbolVisitor<E extends Input<?>>
 
         protected ArrayList<E> docLevelExpressions = new ArrayList<>();
 
-        private @Nullable OrderBy orderBy = null;
-
         public List<E> docLevelExpressions() {
             return docLevelExpressions;
-        }
-
-        public void orderBy(@Nullable OrderBy orderBy) {
-            this.orderBy = orderBy;
-        }
-
-        public @Nullable OrderBy orderBy() {
-            return this.orderBy;
         }
     }
 
     public CollectInputSymbolVisitor(Functions functions, ReferenceResolver<E> referenceResolver) {
         super(functions);
         this.referenceResolver = referenceResolver;
-    }
-
-    @Override
-    public Context extractImplementations(CollectPhase node) {
-        Context context = newContext();
-        context.orderBy(node.orderBy());
-        if (node.toCollect() != null) {
-            for (Symbol symbol : node.toCollect()) {
-                context.add(process(symbol, context));
-            }
-        }
-        return context;
     }
 
     @Override
@@ -91,17 +64,11 @@ public class CollectInputSymbolVisitor<E extends Input<?>>
     public Input<?> visitReference(Reference symbol, Context context) {
         // only doc level references are allowed here, since other granularities
         // should have been resolved by other visitors already
-        if (context.orderBy() != null && context.orderBy().orderBySymbols().contains(symbol)) {
-            OrderByCollectorExpression docLevelExpression = new OrderByCollectorExpression(symbol, context.orderBy());
-            context.docLevelExpressions.add(docLevelExpression);
-            return docLevelExpression;
-        } else {
-            E docLevelExpression = referenceResolver.getImplementation(symbol.info());
-            if (docLevelExpression == null) {
-                throw new UnhandledServerException(SymbolFormatter.format("Cannot handle Reference %s", symbol));
-            }
-            context.docLevelExpressions.add(docLevelExpression);
-            return docLevelExpression;
+        E docLevelExpression = referenceResolver.getImplementation(symbol.info());
+        if (docLevelExpression == null) {
+            throw new UnhandledServerException(SymbolFormatter.format("Cannot handle Reference %s", symbol));
         }
+        context.docLevelExpressions.add(docLevelExpression);
+        return docLevelExpression;
     }
 }
