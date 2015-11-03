@@ -391,7 +391,7 @@ task downloadPlugins << {
     )
     copy {
         from dest
-        into 'plugins'
+        into 'plugins/hdfs'
     }
 }
 
