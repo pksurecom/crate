@@ -19,7 +19,6 @@
  * software solely pursuant to the terms of the relevant commercial agreement.
  */
 
-
 package io.crate.operation.scalar;
 
 import com.google.common.base.Preconditions;
@@ -43,8 +42,7 @@ public abstract class LengthFunction extends Scalar<Integer, BytesRef> {
 
     private final FunctionInfo functionInfo;
 
-
-    public LengthFunction(FunctionInfo functionInfo) {
+    private LengthFunction(FunctionInfo functionInfo) {
         this.functionInfo = functionInfo;
     }
 
@@ -67,7 +65,7 @@ public abstract class LengthFunction extends Scalar<Integer, BytesRef> {
         );
     }
 
-    public BytesRef evaluateInput(Input[] args) {
+    protected BytesRef evaluateInput(Input[] args) {
         Preconditions.checkArgument(args.length == 1);
         Object string = args[0].value();
         if (string == null) {
@@ -78,7 +76,7 @@ public abstract class LengthFunction extends Scalar<Integer, BytesRef> {
 
     @Override
     public Symbol normalizeSymbol(Function symbol) {
-        Preconditions.checkArgument(!symbol.arguments().isEmpty());
+        Preconditions.checkArgument(symbol.arguments().size() == 1);
         Symbol argument = symbol.arguments().get(0);
         if (argument.symbolType().isValueSymbol()) {
             return Literal.newLiteral(info().returnType(), evaluate((Input) argument));
@@ -86,11 +84,10 @@ public abstract class LengthFunction extends Scalar<Integer, BytesRef> {
         return symbol;
     }
 
-
-    private static class OctetLengthFunction extends LengthFunction {
+    static class OctetLengthFunction extends LengthFunction {
         public static final String NAME = "octet_length";
 
-        public OctetLengthFunction(FunctionInfo info) {
+        protected OctetLengthFunction(FunctionInfo info) {
             super(info);
         }
 
@@ -100,10 +97,10 @@ public abstract class LengthFunction extends Scalar<Integer, BytesRef> {
         }
     }
 
-    private static class BitLengthFunction extends LengthFunction {
+    static class BitLengthFunction extends LengthFunction {
         public static final String NAME = "bit_length";
 
-        public BitLengthFunction(FunctionInfo info) {
+        protected BitLengthFunction(FunctionInfo info) {
             super(info);
         }
 
@@ -114,10 +111,10 @@ public abstract class LengthFunction extends Scalar<Integer, BytesRef> {
         }
     }
 
-    private static class CharLengthFunction extends LengthFunction {
+    static class CharLengthFunction extends LengthFunction {
         public static final String NAME = "char_length";
 
-        public CharLengthFunction(FunctionInfo info) {
+        protected CharLengthFunction(FunctionInfo info) {
             super(info);
         }
 
