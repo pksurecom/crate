@@ -120,8 +120,10 @@ public class CopyStatementAnalyzer {
 
         if (whereClause == null) {
             querySpec.where(new WhereClause(null, null, partitions));
+        } else if (whereClause.noMatch()) {
+            querySpec.where(whereClause);
         } else {
-            if (!whereClause.partitions().equals(partitions)) {
+            if (!whereClause.partitions().isEmpty() && !partitions.isEmpty() && !whereClause.partitions().equals(partitions)) {
                 throw new IllegalArgumentException("Given partition ident does not match partition evaluated from where clause");
             }
 

@@ -46,6 +46,7 @@ import org.junit.rules.ExpectedException;
 import java.util.Arrays;
 import java.util.List;
 
+import static io.crate.testing.TestingHelpers.isFunction;
 import static io.crate.testing.TestingHelpers.isLiteral;
 import static io.crate.testing.TestingHelpers.isReference;
 import static org.hamcrest.Matchers.contains;
@@ -192,7 +193,7 @@ public class CopyAnalyzerTest extends BaseAnalyzerTest {
     }
 
     @Test
-    public void testCopyToDirectoryithPartitionClause() throws Exception {
+    public void testCopyToDirectoryWithPartitionClause() throws Exception {
         CopyToAnalyzedStatement analysis = (CopyToAnalyzedStatement) analyze("copy parted partition (date=1395874800000) to directory '/tmp'");
         assertThat(analysis.isDirectoryUri(), is(true));
         String parted = new PartitionName("parted", Arrays.asList(new BytesRef("1395874800000"))).asIndexName();
@@ -211,15 +212,31 @@ public class CopyAnalyzerTest extends BaseAnalyzerTest {
     public void testCopyToWithWhereClause() throws Exception {
         CopyToAnalyzedStatement analysis = (CopyToAnalyzedStatement) analyze("copy parted where id = 1 to '/tmp/foo.json'");
         QuerySpec querySpec = ((QueriedDocTable) analysis.subQueryRelation()).querySpec();
-        assertThat(querySpec.where().query(), instanceOf(Function.class));
-        Function whereFunction = (Function) querySpec.where().query();
-        assertThat(whereFunction.info().ident().name(), is("op_="));
+        assertThat(querySpec.where().query(), isFunction("op_="));
+    }
+
+    @Test
+    public void testCopyToWithPartitionIdentAndPartitionInWhereClause() throws Exception {
+        CopyToAnalyzedStatement analysis = (CopyToAnalyzedStatement) analyze(
+                "copy parted partition (date=1395874800000) where date = 1395874800000 to '/tmp/foo.json'");
+        String parted = new PartitionName("parted", Arrays.asList(new BytesRef("1395874800000"))).asIndexName();
+        QuerySpec querySpec = ((QueriedDocTable) analysis.subQueryRelation()).querySpec();
+        assertThat(querySpec.where().partitions(), contains(parted));
     }
 
     @Test
     public void testCopyToWithPartitionInWhereClause() throws Exception {
         CopyToAnalyzedStatement analysis = (CopyToAnalyzedStatement) analyze(
-                "copy parted partition (date=1395874800000) where date = 1395874800000 to '/tmp/foo.json'");
+                "copy parted where date = 1395874800000 to '/tmp/foo.json'");
+        String parted = new PartitionName("parted", Arrays.asList(new BytesRef("1395874800000"))).asIndexName();
+        QuerySpec querySpec = ((QueriedDocTable) analysis.subQueryRelation()).querySpec();
+        assertThat(querySpec.where().partitions(), contains(parted));
+    }
+
+    @Test
+    public void testCopyToWithPartitionIdentAndWhereClause() throws Exception {
+        CopyToAnalyzedStatement analysis = (CopyToAnalyzedStatement) analyze(
+                "copy parted partition (date=1395874800000) where id = 1 to '/tmp/foo.json'");
         String parted = new PartitionName("parted", Arrays.asList(new BytesRef("1395874800000"))).asIndexName();
         QuerySpec querySpec = ((QueriedDocTable) analysis.subQueryRelation()).querySpec();
         assertThat(querySpec.where().partitions(), contains(parted));
@@ -229,7 +246,7 @@ public class CopyAnalyzerTest extends BaseAnalyzerTest {
     public void testCopyToWithInvalidPartitionInWhereClause() throws Exception {
         expectedException.expect(IllegalArgumentException.class);
         expectedException.expectMessage("Given partition ident does not match partition evaluated from where clause");
-        analyze("copy parted partition (date=1395874800000) where date = 4545 to '/tmp/foo.json'");
+        analyze("copy parted partition (date=1395874800000) where date = 1395961200000 to '/tmp/foo.json'");
     }
 
     @Test
