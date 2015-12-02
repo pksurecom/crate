@@ -22,6 +22,7 @@
 package io.crate.analyze;
 
 import io.crate.analyze.relations.QueriedDocTable;
+import io.crate.analyze.symbol.Function;
 import io.crate.analyze.symbol.Literal;
 import io.crate.exceptions.PartitionUnknownException;
 import io.crate.exceptions.SchemaUnknownException;
@@ -32,6 +33,7 @@ import io.crate.metadata.Schemas;
 import io.crate.metadata.sys.MetaDataSysModule;
 import io.crate.metadata.table.SchemaInfo;
 import io.crate.metadata.table.TableInfo;
+import io.crate.operation.operator.EqOperator;
 import io.crate.operation.operator.OperatorModule;
 import io.crate.testing.MockedClusterServiceModule;
 import org.apache.lucene.util.BytesRef;
@@ -203,6 +205,31 @@ public class CopyAnalyzerTest extends BaseAnalyzerTest {
         expectedException.expect(PartitionUnknownException.class);
         expectedException.expectMessage("No partition for table 'doc.parted' with ident '04130' exists");
         analyze("copy parted partition (date=0) to directory '/tmp/'");
+    }
+
+    @Test
+    public void testCopyToWithWhereClause() throws Exception {
+        CopyToAnalyzedStatement analysis = (CopyToAnalyzedStatement) analyze("copy parted where id = 1 to '/tmp/foo.json'");
+        QuerySpec querySpec = ((QueriedDocTable) analysis.subQueryRelation()).querySpec();
+        assertThat(querySpec.where().query(), instanceOf(Function.class));
+        Function whereFunction = (Function) querySpec.where().query();
+        assertThat(whereFunction.info().ident().name(), is("op_="));
+    }
+
+    @Test
+    public void testCopyToWithPartitionInWhereClause() throws Exception {
+        CopyToAnalyzedStatement analysis = (CopyToAnalyzedStatement) analyze(
+                "copy parted partition (date=1395874800000) where date = 1395874800000 to '/tmp/foo.json'");
+        String parted = new PartitionName("parted", Arrays.asList(new BytesRef("1395874800000"))).asIndexName();
+        QuerySpec querySpec = ((QueriedDocTable) analysis.subQueryRelation()).querySpec();
+        assertThat(querySpec.where().partitions(), contains(parted));
+    }
+
+    @Test
+    public void testCopyToWithInvalidPartitionInWhereClause() throws Exception {
+        expectedException.expect(IllegalArgumentException.class);
+        expectedException.expectMessage("Given partition ident does not match partition evaluated from where clause");
+        analyze("copy parted partition (date=1395874800000) where date = 4545 to '/tmp/foo.json'");
     }
 
     @Test

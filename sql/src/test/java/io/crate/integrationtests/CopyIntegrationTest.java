@@ -288,6 +288,15 @@ public class CopyIntegrationTest extends SQLTransportIntegrationTest {
     }
 
     @Test
+    public void testCopyToWithWhere() throws Exception {
+        this.setup.groupBySetup();
+
+        String uriTemplate = Paths.get(folder.getRoot().toURI()).toUri().toString();
+        SQLResponse response = execute("copy characters where gender = 'female' to DIRECTORY ?", new Object[]{uriTemplate});
+        assertThat(response.rowCount(), is(2L));
+    }
+
+    @Test
     public void testCopyFromNestedArrayRow() throws Exception {
         // assert that rows with nested arrays aren't imported
         execute("create table users (id int, " +
